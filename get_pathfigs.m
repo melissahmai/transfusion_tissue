@@ -31,8 +31,8 @@ function [thisax,leg] = get_pathfigs(config,xvar,yvar,showlegend)
     if ~exist('showlegend','var'); showlegend = false; end
     mstart
     load('cmap.mat');
-    cells = {'ax','ap','tt','tp','bs','ms'};
-    shapes = struct('ax','^','ap','v','tt','d','tp','o','bs','s','ms','d');
+    cells = {'tt','tp','ax','ap','en','ms'};
+    shapes = struct('ax','^','ap','v','tt','d','tp','o','en','s','ms','d');
     env = load(strjoin({'output/',config,'.mat'},''));
     fnames = fieldnames(env);
     run = env.(fnames{1});
@@ -49,9 +49,9 @@ function [thisax,leg] = get_pathfigs(config,xvar,yvar,showlegend)
         if (length(x) > length(y)) && (c == length(cells))
             continue
         end
-        plot(x(data.(cells{c})), y(data.(cells{c})),shapes.(cells{c}),...
-            'MarkerFaceColor',cmap.(cells{c}), 'MarkerEdgeColor',cmap.(cells{c}),...
-            'Color',cmap.(cells{c}),'DisplayName',cells{c},'MarkerSize',8)
+        p(c)=plot(x(data.(cells{c})), y(data.(cells{c})),shapes.(cells{c}),...
+            'MarkerFaceColor',cmap.(cells{c}), 'MarkerEdgeColor',cmap.(cells{c})*.7,...
+            'Color',cmap.(cells{c}),'DisplayName',cells{c},'MarkerSize',8);
         hold on
     end
     
@@ -61,7 +61,7 @@ function [thisax,leg] = get_pathfigs(config,xvar,yvar,showlegend)
     ylabel(yvar)
 
     if showlegend
-        leg = legend(cells);
+        leg = legend(p([3 4 1 2 5:end]), cells([3 4 1 2 5:end]));
     else
         leg = [];
     end

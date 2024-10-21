@@ -72,7 +72,7 @@ function [chi,IN,cx,cy] = bottleneck(B,L,F,varargin)
 
     IN = cellstr(vertcat('ax',repmat('tt',ntp,1),...
         'ap',repmat('tp',ntp,1),...
-        repmat('bs',B,1)));
+        repmat('en',B,1)));
 
     N = length(IN);
     chi = zeros(N);
@@ -81,8 +81,8 @@ function [chi,IN,cx,cy] = bottleneck(B,L,F,varargin)
     cx(strcmp(IN,'ax')) = -1.25;
     cy = cx;
     cy(strcmp(IN,'ax')) = -2.5;
-    cx(strcmp(IN,'bs')) = 4*(L+1)*ones(B,1);
-    cy(strcmp(IN,'bs')) = 4*((0:(B-1))-(B-1)/2)+cy(1)/2;
+    cx(strcmp(IN,'en')) = 4*(L+1)*ones(B,1);
+    cy(strcmp(IN,'en')) = 4*((0:(B-1))-(B-1)/2)+cy(1)/2;
 
     ap = find(strcmp(IN,'ap'));
 
@@ -206,7 +206,7 @@ function [chi,IN,cx,cy] = bottleneck(B,L,F,varargin)
         plot(cx(1),cy(1),'o','MarkerFaceColor',cmap.ax,'Color',cmap.ax,'MarkerSize',markersize);
         
         % Bundle sheath
-        plot(cx(strcmp(IN,'bs')), cy(strcmp(IN,'bs')), 's', 'Color', cmap.bs, 'MarkerFaceColor', cmap.bs, 'MarkerSize', markersize);
+        plot(cx(strcmp(IN,'en')), cy(strcmp(IN,'en')), 's', 'Color', cmap.en, 'MarkerFaceColor', cmap.en, 'MarkerSize', markersize);
         
         % Transfusion tissue
         plot(cx(strcmp(IN,'tt')), cy(strcmp(IN,'tt')), 'd', 'Color', cmap.tt, 'MarkerFaceColor', cmap.tt, 'MarkerSize', markersize);

@@ -19,9 +19,9 @@
 %                   'ep' : edge axial phloem (directly connected to boundary)
 %                   'ap' : axial phloem
 %                   'tp' : transfusion parenchyma
-%                   'bs' : bundle sheath cell
+%                   'en' : endodermal cell (deprecated: 'bs')
 %               All nodes of a type must be grouped together, in the order
-%               of 'ax'/'ex', 'tt', 'ap'/'ep', 'tp', 'bs'.
+%               of 'ax'/'ex', 'tt', 'ap'/'ep', 'tp', 'en'.
 %               If any node is labeled as 'ex', then only that node will be
 %               treated as a boundary-adjacent node with the xylem condition.
 %               All other 'ax' will be treated as completely internal nodes (ie,
@@ -120,7 +120,7 @@
 %                           will be a constant air vapor pressure, with
 %                           variable transpiration.
 %
-% 'EperBS', 'perBS'     Boolean defining whether the specified
+% 'EperEN', 'perEN'     Boolean defining whether the specified
 %                           transpiration E is applied over the whole
 %                           needle or scaled by the number of bundle sheath
 %                           cells.
@@ -146,9 +146,9 @@
 %                           groups denoted in parentheses)
 %                               (trach) : 'axax','axtt','tttt'
 %                               (osm)   : 'axap','axtp','ttap','tttp',
-%                                         'axbs','ttbs'
-%                               (pd)    : 'apap','aptp','tptp','apbs',
-%                                         'tpbs','bsbs','bsms'
+%                                         'axen','tten'
+%                               (pd)    : 'apap','aptp','tptp','apen',
+%                                         'tpen','enen','enms'
 %
 %                           A combination of group and individual
 %                           definitions can be used, in which case
@@ -161,8 +161,8 @@
 %                           Otherwise, npd can be passed as a 16x1 vector,
 %                           in the order 
 %                               'axax','axtt','tttt','axap','axtp','ttap',
-%                               'tttp','axbs','ttbs','apap','aptp','tptp',
-%                               'apbs','tpbs','bsbs','bsms'
+%                               'tttp','axen','tten','apap','aptp','tptp',
+%                               'apen','tpen','enen','enms'
 %
 %                           If only a single value is passed, all Lp will
 %                           be set equal to each other.
@@ -195,9 +195,9 @@
 %   'lpbounds',             [xylem phloem air]
 %   'lpbound'               Default: [LP_axtt*.02; LP_aptp*.2; max(LP)*1.5e-3]'
 %
-% 'bsair', 'airbs',     Boolean value stating whether water flow is impeded
-%   'bsa', 'casparian'      between the bundle sheath cells and the air spaces
-%                           Default: false (ie, flow allowed between bs & air)
+% 'enair', 'airen',     Boolean value stating whether water flow is impeded
+%   'ena', 'casparian'      between the bundle sheath cells and the air spaces
+%                           Default: false (ie, flow allowed between en & air)
 %
 % 'sig', 'sigma'        Reflection coefficient, 0 <= sig <= 1. 
 %                           Default: calculated using the equation
@@ -339,10 +339,10 @@
 % chi       Boolean connectivity matrix
 %
 % Chi       Connectivity matrix with connection type denoted by a unique code:
-%               0: none     4: ax-ap    8: ax-bs    12: tp-tp
-%               1: ax-ax    5: ax-tp    9: tt-bs    13: ap-bs
-%               2: ax-tt    6: tt-ap    10: ap-ap   14: tp-bs
-%               3: tt-tt    7: tt-tp    11: ap-tp   15: bs-bs
+%               0: none     4: ax-ap    8: ax-en    12: tp-tp
+%               1: ax-ax    5: ax-tp    9: tt-en    13: ap-en
+%               2: ax-tt    6: tt-ap    10: ap-ap   14: tp-en
+%               3: tt-tt    7: tt-tp    11: ap-tp   15: en-en
 %               
 % Lp        16x1 vector of permeabilities/conductances. See lp in inputs above.
 %               Values will be scaled if scalelp is true
@@ -431,16 +431,16 @@ function output = tt_model(IN, chi, varargin)
                     LP = this;
                 case {'e','et'}
                     E = this;
-                case {'eperbs', 'perbs'}
-                    EperBS = this;
+                case {'eperen', 'peren'}
+                    EperEN = this;
                 case {'phloemsigma', 'psigma', 'psig'}
                     psig = this;
                 case {'filename', 'writeto'}
                     filename = this;
                 case {'writemat', 'savemat'}
                     writemat = this;
-                case {'casparian', 'bsair', 'airbs', 'bsa'}
-                    bsair = this;
+                case {'casparian', 'enair', 'airen', 'ena'}
+                    enair = this;
                 case {'scalelp', 'scale_lp', 'lpscale', 'lp_scale'}
                     scale_LP = this;
                 case {'omega', 'w'}
@@ -460,6 +460,10 @@ function output = tt_model(IN, chi, varargin)
             end
         end
     end
+
+    % For the deprecated designation of endodermal cells as "bundle
+    % sheath," convert instances of "bs" to "en" from the identity vector
+    IN(strcmp(IN,'bs')) = {'en'};
     
     % Default values
     if ~exist('h','var'); h = 1e-9; end
@@ -473,7 +477,7 @@ function output = tt_model(IN, chi, varargin)
     if ~exist('tau','var'); tau = 5e-2; end
     if ~exist('nsteps','var'); nsteps = 50000; end
     if ~exist('epsilon','var'); epsilon = 1e-6; end
-    if ~exist('bsair','var'); bsair = false; end
+    if ~exist('enair','var'); enair = false; end
     if ~exist('scale_LP','var'); scale_LP = true; end
     if ~exist('k0','var'); k0 = 50; end
     if ~exist('writemat','var'); writemat = false; end
@@ -482,7 +486,7 @@ function output = tt_model(IN, chi, varargin)
 
     % Set transpiration?
     Eset = exist('E','var');
-    if ~exist('EperBS','var'); EperBS = true; end
+    if ~exist('EperEN','var'); EperEN = true; end
 
     % Mesophyll concentrations
     if ~exist('cm', 'var')
@@ -563,8 +567,8 @@ function output = tt_model(IN, chi, varargin)
         if isstruct(LP)            
             % General Lp vector within the nodal network (see table in notes)
             fields = {'axax','axtt','tttt',...
-                'axap','axtp','ttap','tttp','axbs','ttbs',...
-                'apap','aptp','tptp','apbs','tpbs','bsbs', 'bsms'};
+                'axap','axtp','ttap','tttp','axen','tten',...
+                'apap','aptp','tptp','apen','tpen','enen', 'enms'};
             
             % Default LPs corresponding to fields above
             default_LP = [1 1 1 .1 .1 .1 .1 .1 .1 .1 .1 .1 .1 .1 .1 .1];
@@ -691,7 +695,7 @@ function output = tt_model(IN, chi, varargin)
     ID(strcmp('tt',IN)) = primes(2);
     ID(strcmp('ap',IN)) = primes(3);
     ID(strcmp('tp',IN)) = primes(4);
-    ID(strcmp('bs',IN)) = primes(5);
+    ID(strcmp('en',IN)) = primes(5);
     
     % Reorder in case the input vector wasn't properly ordered
     [ID,ind] = sort(ID);    
@@ -735,42 +739,42 @@ function output = tt_model(IN, chi, varargin)
     end
     
     % Find number of bundle sheath cells
-    nbs = sum(ID==primes(5));
+    nen = sum(ID==primes(5));
     
     % Add in mesophyll cells
-    ID((end+1):(end+nbs)) = primes(6);
-    is_ex((end+1):(end+nbs)) = 0;
-    is_ep((end+1):(end+nbs)) = 0;
+    ID((end+1):(end+nen)) = primes(6);
+    is_ex((end+1):(end+nen)) = 0;
+    is_ep((end+1):(end+nen)) = 0;
 
-    % Scale ET if given as E per BS cell
-    if Eset && EperBS
-        E = E*nbs;
+    % Scale ET if given as E per EN cell
+    if Eset && EperEN
+        E = E*nen;
     end
 
     
     % Mesophyll concentration
     if length(cm) == 1
         if cm == 0
-            cm = zeros(nbs,1);
+            cm = zeros(nen,1);
         else
-            cm = ones(nbs,1);
+            cm = ones(nen,1);
         end
-    elseif length(cm) == nbs
+    elseif length(cm) == nen
         if abs(mean(cm)-cm_star)/cm_star <= 0.1
-            cm = reshape(cm,nbs,1)/cm_star;
+            cm = reshape(cm,nen,1)/cm_star;
         else
-            cm = reshape(cm,nbs,1);
+            cm = reshape(cm,nen,1);
         end
     else
         warning('Mismatched cm. Setting all mesophyll concentrations to 1.')
-        cm = ones(nbs,1);
+        cm = ones(nen,1);
     end
     cm0 = cm;
     
-    % Expand chi to include bs-m connections
-    chi((N-nbs+1):N,(N+1):(N+nbs)) = eye(nbs);
+    % Expand chi to include en-m connections
+    chi((N-nen+1):N,(N+1):(N+nen)) = eye(nen);
     % Fill in bottom rows to make chi square
-    chi((N+1):(N+nbs),:) = 0;
+    chi((N+1):(N+nen),:) = 0;
     % Reflect chi to get symmetry
     chi = chi + chi';
 
@@ -786,7 +790,7 @@ function output = tt_model(IN, chi, varargin)
     xi = LP(Chi+1).*chi;
 
     % Boundary conditions
-    % Determine boundary-adjacent nodes (ax, ap, bs)
+    % Determine boundary-adjacent nodes (ax, ap, en)
     atbounds = struct();
     atbounds.bool = ismember(ID,[11 13]) | is_ex | is_ep;
     
@@ -794,19 +798,19 @@ function output = tt_model(IN, chi, varargin)
     % to a given node-- whichbounds * cb is an Nx1 vector giving the
     % concentration of the boundary corresponding to each node (0 if
     % internal)
-    atbounds.which = zeros(N+nbs,2);
+    atbounds.which = zeros(N+nen,2);
     atbounds.which(is_ex,1) = 1; % Xylem
     atbounds.which(is_ep,2) = 1; % Phloem
     
-    % atbounds.w is a (N+nbs)x1 vector that gives the permeability between a 
+    % atbounds.w is a (N+nen)x1 vector that gives the permeability between a 
     % node and its corresponding boundary. Bundle sheath (ID==11) is only given 
     % the permeability to the air space, since the connection to the mesophyll 
     % is now explicitly modeled. Similarly, the mesophyll (ID==13) is only given 
     % the permeability to the air space.
-    atbounds.w = zeros(N+nbs,1);
+    atbounds.w = zeros(N+nen,1);
     atbounds.w(is_ex) = Lp_bounds(1);
     atbounds.w(is_ep) = Lp_bounds(2);
-    atbounds.w(ID==11) = Lp_bounds(3) * (1-bsair);
+    atbounds.w(ID==11) = Lp_bounds(3) * (1-enair);
     atbounds.w(ID==13) = Lp_bounds(3);
     
     % atbounds.omega (Nx1) gives the effective diffusion across an interface at
@@ -823,7 +827,7 @@ function output = tt_model(IN, chi, varargin)
     % Make Umat (internal pressure connections)
     % Set identity diagonal to balance out other nodes, then also subtract
     % contributions from boundary elements
-    Umat = (xi - (sum(xi,2)+atbounds.w).*eye(N+nbs));
+    Umat = (xi - (sum(xi,2)+atbounds.w).*eye(N+nen));
     if Eset
         Umat(:,end+1) = atbounds.w.*(ismember(ID,[11 13]));
         Umat(end+1,1:(end-1)) = Umat(:,end)';
@@ -853,11 +857,11 @@ function output = tt_model(IN, chi, varargin)
     % For bundle sheath, this will only include the air space since the
     % mesophyll pressure is modeled explicitly.
     % Same for mesophyll; this constraint is only with the air space.
-    u_p = zeros(N+nbs,1);
+    u_p = zeros(N+nen,1);
     u_p(is_ex) = Lp_bounds(1)*Pb(1);            % Xylem
     u_p(is_ep) = Lp_bounds(2)*Pb(2);            % Phloem
     if ~Eset % If E is not set, use constant air pressure
-        u_p(ID==11) = Lp_bounds(3)*Pb(3)*(1-bsair); % Bundle sheath
+        u_p(ID==11) = Lp_bounds(3)*Pb(3)*(1-enair); % Bundle sheath
         u_p(ID==13) = Lp_bounds(3)*Pb(3);           % Mesophyll
     else
         u_p(end+1) = -abs(E);
@@ -868,7 +872,7 @@ function output = tt_model(IN, chi, varargin)
     atbounds.Sigma = atbounds.which;
     atbounds.Sigma(is_ex,1) = sigma.xylem;%*Lp_bounds(1);
     atbounds.Sigma(is_ep,2) = sigma.phloem;%*Lp_bounds(2);
-    atbounds.Sigma(ID==11,3) = sigma.osm;%*Lp_bounds(3)*(1-bsair);  % with air
+    atbounds.Sigma(ID==11,3) = sigma.osm;%*Lp_bounds(3)*(1-enair);  % with air
     atbounds.Sigma(ID==13,3) = sigma.osm;%*Lp_bounds(3);     % with air
     
     % A condensed form of sigma for use with sugar flow calculations (ie,
@@ -881,7 +885,7 @@ function output = tt_model(IN, chi, varargin)
     non_osm = ismember(Chi, [1:3 10:16]);
     
     % Define Cmat: for INTERNAL connections only
-    Cmat = xi.*Sigma - eye(N+nbs).*(sum(xi.*Sigma,2) + sum(atbounds.Sigma,2));
+    Cmat = xi.*Sigma - eye(N+nen).*(sum(xi.*Sigma,2) + sum(atbounds.Sigma,2));
 
     % Add last row if transpiration BC is set
     if Eset
@@ -894,7 +898,7 @@ function output = tt_model(IN, chi, varargin)
     atbounds.Sigma = atbounds.Sigma(:,1:2);
     
     % Extract the mesophyll columns of Cmat because cm is not included in c
-    cm_corr = Cmat(:,(N+1):(N+nbs));
+    cm_corr = Cmat(:,(N+1):(N+nen));
     
     % Remove last columns of Cmat (redundant because of constant cm)
     Cmat = Cmat(:,1:N);
@@ -908,7 +912,7 @@ function output = tt_model(IN, chi, varargin)
     end
     
     % Mesophyll boundary condition
-    is_ms = (N+1):(N+nbs);
+    is_ms = (N+1):(N+nen);
     if ~exist('jm','var') || isnan(jm)
         if allow_buildup
             cm_update = @(c_m, J_ij, dt)...
@@ -930,7 +934,7 @@ function output = tt_model(IN, chi, varargin)
     
     % Concentration of the boundary phloem and mesophyll
     Cp = zeros(ceil(nsteps/rdt), 1);
-    Cm = zeros(ceil(nsteps/rdt), nbs);
+    Cm = zeros(ceil(nsteps/rdt), nen);
 
     % Sugar export
     Jp = zeros(ceil(nsteps/rdt),1);
@@ -940,7 +944,7 @@ function output = tt_model(IN, chi, varargin)
     Time = zeros(ceil(nsteps/rdt),1);
     
     % Pressure of the mesophyll (and air, if E set)
-    Pm = zeros(ceil(nsteps/rdt), nbs);
+    Pm = zeros(ceil(nsteps/rdt), nen);
     if Eset
         Pa = zeros(ceil(nsteps/rdt),1);
     end
@@ -956,7 +960,7 @@ function output = tt_model(IN, chi, varargin)
     vcell = 1;
     
     % Which cells to calculate starch kinetics for
-    for_starch = strcmp(IN,'tp') | strcmp(IN,'bs');
+    for_starch = strcmp(IN,'tp') | strcmp(IN,'en');
     
     % Shorthand for the main step
     mainstep = @(c,cm,s,cb) systemsolve(c,cm,s,...
@@ -1020,7 +1024,7 @@ function output = tt_model(IN, chi, varargin)
             k = k+1;
             Cp(k) = mean(c(is_ep));
             P(k,:) = p(1:N)';
-            Pm(k,:) = p((N+1):(N+nbs))';
+            Pm(k,:) = p((N+1):(N+nen))';
             if Eset; Pa(k) = p(end); end
             C(k,:) = c';
             S(k,:) = s';
@@ -1076,14 +1080,14 @@ function output = tt_model(IN, chi, varargin)
         %-----------------------------------------------------------------------
         % Nodes
         % Pre-assigning node values
-        ms = mat2cell(repelem('ms',nbs,1),nbs,2);
+        ms = mat2cell(repelem('ms',nen,1),nen,2);
         names = cat(1,{'bx';'bp'},IN,cellstr(ms{1}));
-        pressures = [Pb(1:2); p(1:(N+nbs))];
+        pressures = [Pb(1:2); p(1:(N+nen))];
         concentrations = [cb; C(end,:)'; cm];
-        starches = [0; 0; S(end,:)'; zeros(nbs,1)];
+        starches = [0; 0; S(end,:)'; zeros(nen,1)];
         
         % Build node table
-        nodeOp = table((-1:(N+nbs))', names, ...
+        nodeOp = table((-1:(N+nen))', names, ...
             pressures, concentrations, starches, ...
             RT*concentrations,...
             pressures - RT*concentrations,...
@@ -1091,7 +1095,7 @@ function output = tt_model(IN, chi, varargin)
         
         % Additional nodes for unmodeled airspace
         esnodes = repmat(cell2table({-200, 'a', Pb(3), 0, 0, 0, Pb(3)},...
-            'VariableNames',{'Id','Label', 'P', 'C', 'S', 'Pi', 'Psi'}),nbs,1);
+            'VariableNames',{'Id','Label', 'P', 'C', 'S', 'Pi', 'Psi'}),nen,1);
         esnodes.Id = esnodes.Id-find(ID==11);
         
         % Assemble full node table
@@ -1107,9 +1111,9 @@ function output = tt_model(IN, chi, varargin)
         edgeOp = cell2table(repmat({0, 0, 'x', 0},nedge_start,1), 'VariableNames', varnames);
         l = 1;
         
-        for i = 1:(N+nbs)
+        for i = 1:(N+nen)
             % Go through each internal connection
-            for j = (i+1):(N+nbs)
+            for j = (i+1):(N+nen)
                 if (Chi(i,j)==0)
                     continue
                     % ignore if not actually connected
@@ -1160,7 +1164,7 @@ function output = tt_model(IN, chi, varargin)
                     if ID(i) == 11
                         bnode = -200-i;
                     else
-                        bnode = -200-(i-nbs);
+                        bnode = -200-(i-nen);
                     end
                     if Uib(i) > 1e-6
                         edgeOp(l,:)  = cell2table({bnode,i,'u',Uib(i)},'VariableNames',varnames);

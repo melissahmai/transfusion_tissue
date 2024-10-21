@@ -29,12 +29,12 @@
 % J             Sugar export through the phloem (>0 for proper function)
 % wue           Export efficiency Jp/E
 % recycling     Fraction of water from the xylem returned to the phloem
-% sugar_in      Sugar flux into the BS from MS
+% sugar_in      Sugar flux into the en from MS
 % sugar_back    Sugar backwashing into the mesophyll
 % backflow      Ratio of sugar flow backwashing into the mesophyll   
 % ax, ex, ap,   Boolean vectors that indicate cell identities
 %   ep, tt,
-%   tp, bs,
+%   tp, en,
 %   ms
 % paths_xy      Shortest pathlengths to each node from the axial xylem
 % paths_ph      Shortest pathlengths to each node from the axial phloem
@@ -116,7 +116,7 @@ function op = needle_analysis(modelOp, convert)
     % Get sugar flux through the mesophyll cells
     Jib_meso = sum(Jij((length(IN)+1):end,:),2);
     
-    % Negative flux means sugar is leaving the mesophyll into BS
+    % Negative flux means sugar is leaving the mesophyll into en
     op.sugar_in = sum(-Jib_meso(Jib_meso < 0));
     
     % Positive flux means sugar is entering the mesophyll (backflow)
@@ -127,7 +127,7 @@ function op = needle_analysis(modelOp, convert)
     
     %% IDs
     N = length(IN);
-    ids = {'ax','ex','ap','ep','tt','tp','bs','ms'};
+    ids = {'ax','ex','ap','ep','tt','tp','en','ms'};
     for i = 1:length(ids)
         op.(ids{i}) = strcmp(IN, ids{i});
     end
@@ -139,8 +139,8 @@ function op = needle_analysis(modelOp, convert)
 
     % To exclude tt in path finding
     chi_nott = chi;
-    chi_nott(op.tt,:) = 0;
-    chi_nott(:,op.tt) = 0;
+%     chi_nott(op.tt,:) = 0;
+%     chi_nott(:,op.tt) = 0;
     
     % But connect the tp that's attached to ap to the ax
     chi_nott(op.ex | op.ax,chi_nott((op.ep | op.ap),:)==1) = 1;
